@@ -27,7 +27,7 @@ module.exports = {
         order: [['loan_date', 'DESC']],
         include: [
           { model: Book, as: 'book', attributes: ['title', 'author'] },
-          { model: User, as: 'user', attributes: ['id', 'name', 'username', 'role'] }
+          { model: User, as: 'user', attributes: ['id', 'name', 'rombel', 'rayon', 'role'] }
         ]
       });
 
@@ -44,7 +44,7 @@ module.exports = {
       const loan = await Loan.findByPk(req.params.id, {
         include: [
           { model: Book, as: 'book' },
-          { model: User, as: 'user', attributes: { exclude: ['password'] } }
+          { model: User, as: 'user', attributes: ['id', 'name', 'rombel', 'rayon', 'role'] }
         ]
       });
       if (!loan) return res.status(404).json(response(404, 'Loan not found'));

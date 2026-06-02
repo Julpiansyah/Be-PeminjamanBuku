@@ -24,6 +24,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
+    rombel: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    rayon: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
     password: {
       type: DataTypes.STRING,
       allowNull: false

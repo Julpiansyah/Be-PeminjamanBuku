@@ -13,6 +13,8 @@ const loginSchema = {
 const registerSchema = {
   name: { type: 'string', empty: false },
   password: { type: 'string', min: 6, empty: false },
+  rombel: { type: 'string', optional: true },
+  rayon: { type: 'string', optional: true },
 };
 
 router.post('/register', validate(registerSchema), authController.register);

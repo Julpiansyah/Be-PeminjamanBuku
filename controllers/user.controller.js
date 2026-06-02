@@ -59,6 +59,8 @@ module.exports = {
       const schema = {
         name: "string|empty:false",
         password: "string|min:6",
+        rombel: "string|optional",
+        rayon: "string|optional",
         role: { type: "enum", values: ["admin", "user"], optional: true }
       };
 
@@ -95,6 +97,8 @@ module.exports = {
       const schema = {
         name: "string|optional",
         password: "string|min:6|optional",
+        rombel: "string|optional",
+        rayon: "string|optional",
         role: { type: "enum", values: ["admin", "user"], optional: true }
       };
 

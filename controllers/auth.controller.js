@@ -7,7 +7,7 @@ module.exports = {
   register: async (req, res) => {
     try {
       // UBAH: Hanya ambil name dan password (sesuai database)
-      const { name, password } = req.body;
+      const { name, password, rombel, rayon } = req.body;
 
       if (req.body.role && req.body.role !== 'user') {
         return res.status(403).json(response(403, 'Registrasi hanya untuk role peminjam (user)'));
@@ -32,6 +32,8 @@ module.exports = {
         name,
         password,
         role: 'user',
+        rombel: rombel ?? null,
+        rayon: rayon ?? null,
       });
 
       const userData = user.toJSON();
@@ -39,7 +41,7 @@ module.exports = {
 
       // UBAH: Payload token menggunakan 'name', bukan 'username'
       const token = jwt.sign(
-        { id: user.id, name: user.name, role: user.role },
+        { id: user.id, name: user.name, role: user.role, rombel: user.rombel, rayon: user.rayon },
         auth_secret,
         { expiresIn: jwt_expire }
       );
@@ -69,7 +71,7 @@ module.exports = {
       // UBAH: Cari user berdasarkan 'name', hapus 'username' dari attributes
       const user = await User.findOne({ 
         where: { name },
-        attributes: ['id', 'name', 'role', 'password']
+        attributes: ['id', 'name', 'rombel', 'rayon', 'role', 'password']
       });
 
       if (!user) {
@@ -83,7 +85,7 @@ module.exports = {
 
       // UBAH: Payload token menggunakan 'name'
       const token = jwt.sign(
-        { id: user.id, name: user.name, role: user.role },
+        { id: user.id, name: user.name, role: user.role, rombel: user.rombel, rayon: user.rayon },
         auth_secret,
         { expiresIn: jwt_expire }
       );
