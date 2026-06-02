@@ -1,29 +1,20 @@
 const { response } = require('../helpers/response.formatter');
 
-module.exports = {
-  // Cek admin only
-  isAdmin: (req, res, next) => {
-    if (req.userRole !== 'admin') {
-      return res.status(403).json(response(403, 'Forbidden - Akses khusus admin'));
+const role = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json(response(401, 'Unauthorized'));
     }
-    next();
-  },
 
-  // Cek peminjam atau admin
-  isBorrower: (req, res, next) => {
-    if (req.userRole !== 'peminjam' && req.userRole !== 'admin') {
-      return res.status(403).json(response(403, 'Forbidden - Akses khusus peminjam'));
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json(response(403, 'Forbidden - Akses ditolak untuk role ini'));
     }
-    next();
-  },
 
-  // Flexible: cek multiple roles
-  allowRoles: (...roles) => {
-    return (req, res, next) => {
-      if (!roles.includes(req.userRole)) {
-        return res.status(403).json(response(403, `Forbidden - Role tidak diizinkan`));
-      }
-      next();
-    };
-  },
+    next();
+  };
 };
+
+// Alias untuk route yang membutuhkan admin saja (mis. reports)
+role.isAdmin = role('admin');
+
+module.exports = role;

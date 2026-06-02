@@ -17,8 +17,7 @@ module.exports = {
       }
 
       const decoded = jwt.verify(token, auth_secret);
-      req.userId = decoded.userId;
-      req.userRole = decoded.role;
+      req.user = decoded;
       next();
     } catch (error) {
       if (error.name === 'TokenExpiredError') {

@@ -1,5 +1,5 @@
 'use strict';
-const { Model, DataTypes, Op } = require('sequelize');
+const { Model, DataTypes } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Loan extends Model {
@@ -9,28 +9,35 @@ module.exports = (sequelize, DataTypes) => {
   }
   
   Loan.init({
-    book_id: DataTypes.INTEGER,
-    user_id: DataTypes.INTEGER,
+    id: {
+      type: DataTypes.BIGINT,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    book_id: {
+      type: DataTypes.BIGINT,
+      allowNull: false
+    },
+    user_id: {
+      type: DataTypes.BIGINT,
+      allowNull: false
+    },
     loan_date: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
     },
-    due_date: DataTypes.DATE,
-    return_date: DataTypes.DATE,
-    status: {
-      type: DataTypes.ENUM('dipinjam', 'dikembalikan', 'terlambat'),
-      defaultValue: 'dipinjam'
+    return_date: {
+      type: DataTypes.DATE
     },
-    notes: DataTypes.TEXT
+    status: {
+      type: DataTypes.ENUM('dipinjam', 'dikembalikan'),
+      defaultValue: 'dipinjam'
+    }
   }, {
     sequelize,
     modelName: 'Loan',
     tableName: 'loans',
-    underscored: true,
-    scopes: {
-      active: { where: { status: 'dipinjam' } },
-      returned: { where: { status: 'dikembalikan' } },
-    },
+    underscored: true
   });
 
   return Loan;

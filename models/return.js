@@ -9,26 +9,27 @@ module.exports = (sequelize, DataTypes) => {
   }
   
   Return.init({
-    loan_id: DataTypes.INTEGER,
+    id: {
+      type: DataTypes.BIGINT,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    loan_id: {
+      type: DataTypes.BIGINT,
+      allowNull: false
+    },
     return_date: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
     },
-    condition: {
-      type: DataTypes.ENUM('baik', 'rusak_ringan', 'rusak_berat', 'hilang'),
-      defaultValue: 'baik'
-    },
-    fine_amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      defaultValue: 0
-    },
-    notes: DataTypes.TEXT,
-    processed_by: DataTypes.INTEGER
+    notes: {
+      type: DataTypes.TEXT
+    }
   }, {
     sequelize,
     modelName: 'Return',
     tableName: 'returns',
-    underscored: true,
+    underscored: true
   });
 
   return Return;

@@ -13,6 +13,8 @@ const authRoutes = require('./routes/auth.routes');
 const bookRoutes = require('./routes/book.routes');
 const loanRoutes = require('./routes/loan.routes');
 const reportRoutes = require('./routes/report.routes');
+const userRoutes = require('./routes/user.routes');
+const returnRoutes = require('./routes/return.routes');
 
 const app = express();
 
@@ -37,12 +39,14 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
+app.use('/api/users', userRoutes);
 
 // DEBUG: Log sebelum mount loans
 console.log('🔍 [DEBUG] Loading loan routes...');
 app.use('/api/loans', loanRoutes);
 console.log('✅ [DEBUG] Routes /api/loans loaded successfully');
 
+app.use('/api/returns', returnRoutes);
 app.use('/api/reports', reportRoutes);
 
 // 404 handler
@@ -56,7 +60,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
+  console.error(' Error:', err);
   
   // Multer file size error
   if (err.code === 'LIMIT_FILE_SIZE') {
@@ -86,9 +90,10 @@ const startServer = async () => {
     await db.sequelize.authenticate();
     console.log('✅ Database terhubung: ' + db.sequelize.config.database);
     
-    // Sync models (untuk development, gunakan migrate di production)
+    // Sync models
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ Development mode: Models ready');
+      await db.sequelize.sync({ alter: true });
+      console.log('✅ Development mode: Models ready and synced');
     }
     
     app.listen(port, () => {

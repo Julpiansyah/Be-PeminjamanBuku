@@ -19,28 +19,31 @@ module.exports = {
       ] = await Promise.all([
         Book.count(),
         Book.count({ where: { stock: { [Op.gt]: 0 } } }),
-        User.count({ where: { is_active: true } }),
+        User.count({ where: { role: 'user' } }),
         Loan.count({ where: { status: 'dipinjam' } }),
         Loan.count({ where: { status: 'dikembalikan' } }),
-        Loan.count({ 
-          where: { 
-            status: 'dipinjam',
-            due_date: { [Op.lt]: new Date() }
-          } 
-        }),
-        // Statistik peminjaman per bulan (6 bulan terakhir)
+        (() => {
+          const overdueThreshold = new Date();
+          overdueThreshold.setDate(overdueThreshold.getDate() - 14);
+          return Loan.count({
+            where: {
+              status: 'dipinjam',
+              loan_date: { [Op.lt]: overdueThreshold },
+            },
+          });
+        })(),
         Loan.findAll({
           attributes: [
-            [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('loan_date')), 'month'],
-            [Sequelize.fn('COUNT', Sequelize.col('id')), 'total']
+            [Sequelize.fn('DATE_FORMAT', Sequelize.col('loan_date'), '%Y-%m-01'), 'month'],
+            [Sequelize.fn('COUNT', Sequelize.col('id')), 'total'],
           ],
           where: {
-            loan_date: { [Op.gte]: new Date(new Date().setMonth(new Date().getMonth() - 6)) }
+            loan_date: { [Op.gte]: new Date(new Date().setMonth(new Date().getMonth() - 6)) },
           },
-          group: [Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('loan_date'))],
-          order: [[Sequelize.fn('DATE_TRUNC', 'month', Sequelize.col('loan_date')), 'ASC']],
-          raw: true
-        })
+          group: [Sequelize.fn('DATE_FORMAT', Sequelize.col('loan_date'), '%Y-%m-01')],
+          order: [[Sequelize.fn('DATE_FORMAT', Sequelize.col('loan_date'), '%Y-%m-01'), 'ASC']],
+          raw: true,
+        }),
       ]);
 
       return res.status(200).json(response(200, 'Dashboard stats', {
@@ -78,7 +81,7 @@ module.exports = {
       const loans = await Loan.findAll({
         where,
         include: [
-          { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+          { model: User, as: 'user', attributes: ['id', 'name', 'username'] },
           { model: Book, as: 'book', attributes: ['id', 'title', 'isbn', 'author'] },
           { model: Return, as: 'return' }
         ],

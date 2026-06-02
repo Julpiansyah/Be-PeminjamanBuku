@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/report.controller');
 const { verifyToken } = require('../middlewares/auth');
-const { isAdmin } = require('../middlewares/role');
+const role = require('../middlewares/role');
 const { validateQuery } = require('../middlewares/validator');
 
 const querySchema = {
@@ -14,7 +14,7 @@ const querySchema = {
 };
 
 // Admin only routes
-router.use(verifyToken, isAdmin);
+router.use(verifyToken, role('admin'));
 
 router.get('/dashboard', reportController.dashboard);
 router.get('/loans', validateQuery(querySchema), reportController.loanReport);

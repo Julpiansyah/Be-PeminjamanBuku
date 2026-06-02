@@ -2,42 +2,35 @@ const { Op } = require('sequelize');
 const { response, paginate } = require('../helpers/response.formatter');
 const { Book, Loan } = require('../models');
 const path = require('path');
+const Validator = require('fastest-validator');
+const v = new Validator();
 
 module.exports = {
-  // GET /books - List buku dengan pagination, search, sorting
+  // GET /books
   index: async (req, res) => {
     try {
       const { 
         page = 1, 
         limit = 10, 
         search, 
-        category, 
-        author, 
-        available,
+        category,
         sort = 'created_at',
         order = 'DESC'
       } = req.query;
 
       const where = {};
       
-      // Search filter
       if (search) {
         where[Op.or] = [
-          { title: { [Op.iLike]: `%${search}%` } },
-          { author: { [Op.iLike]: `%${search}%` } },
-          { isbn: { [Op.iLike]: `%${search}%` } },
+          { title: { [Op.like]: `%${search}%` } },
+          { author: { [Op.like]: `%${search}%` } },
+          { publisher: { [Op.like]: `%${search}%` } },
+          { isbn: { [Op.like]: `%${search}%` } },
         ];
       }
       if (category) where.category = category;
-      if (author) where.author = { [Op.iLike]: `%${author}%` };
-      if (available !== undefined) {
-        where.stock = available === 'true' ? { [Op.gt]: 0 } : { [Op.lte]: 0 };
-      }
 
-      // Sorting
       const orderClause = [[sort, order.toUpperCase()]];
-
-      // Pagination
       const offset = (page - 1) * limit;
 
       const { count, rows } = await Book.findAndCountAll({
@@ -47,131 +40,127 @@ module.exports = {
         offset: parseInt(offset),
       });
 
-      return res.status(200).json(response(200, 'Books retrieved', 
-        paginate(rows, page, limit, count)
-      ));
+      return res.status(200).json(response(200, 'Books retrieved', paginate(rows, page, limit, count)));
     } catch (error) {
       console.error('Get books error:', error);
-      return res.status(500).json(response(500, 'Terjadi kesalahan server', error.message));
+      return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
 
-  // GET /books/:id - Detail buku
+  // GET /books/:id
   show: async (req, res) => {
     try {
       const book = await Book.findByPk(req.params.id);
-      
-      if (!book) {
-        return res.status(404).json(response(404, 'Buku tidak ditemukan'));
-      }
-
+      if (!book) return res.status(404).json(response(404, 'Book not found'));
       return res.status(200).json(response(200, 'Book retrieved', book));
     } catch (error) {
-      console.error('Get book error:', error);
-      return res.status(500).json(response(500, 'Terjadi kesalahan server', error.message));
+      return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
 
-  // POST /books - Create buku (Admin only)
+  // POST /books
   store: async (req, res) => {
     try {
-      const { title, author, isbn, publisher, year, category, description, stock } = req.body;
+      const schema = {
+        title: "string|empty:false",
+        author: "string|empty:false",
+        isbn: "string|optional",
+        publisher: "string|optional",
+        year: "string|convert:true|optional", // convert string to number if multipart form-data
+        category: "string|optional",
+        description: "string|optional",
+        stock: "string|convert:true|optional"
+      };
 
-      // Validasi required fields
-      if (!title || !author) {
-        return res.status(400).json(response(400, 'Title dan author wajib diisi'));
+      const validate = v.validate(req.body, schema);
+      if (validate.length) {
+        return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
-      // Handle upload cover
       const cover_image = req.file ? `/uploads/books/${req.file.filename}` : null;
 
       const book = await Book.create({
-        title,
-        author,
-        isbn,
-        publisher,
-        year: year ? parseInt(year) : null,
-        category,
-        description,
-        stock: stock ? parseInt(stock) : 0,
-        cover_image,
+        title: req.body.title,
+        author: req.body.author,
+        isbn: req.body.isbn,
+        publisher: req.body.publisher,
+        year: req.body.year ? parseInt(req.body.year) : null,
+        category: req.body.category,
+        description: req.body.description,
+        stock: req.body.stock ? parseInt(req.body.stock) : 0,
+        cover_image: cover_image
       });
 
-      return res.status(201).json(response(201, 'Buku berhasil ditambahkan', book));
+      return res.status(201).json(response(201, 'Book created successfully', book));
     } catch (error) {
-      console.error('Create book error:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(400).json(response(400, 'ISBN sudah terdaftar'));
-      }
-      return res.status(500).json(response(500, 'Terjadi kesalahan server', error.message));
+      return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
 
-  // PUT /books/:id - Update buku (Admin only)
+  // PUT /books/:id
   update: async (req, res) => {
     try {
       const book = await Book.findByPk(req.params.id);
-      
-      if (!book) {
-        return res.status(404).json(response(404, 'Buku tidak ditemukan'));
+      if (!book) return res.status(404).json(response(404, 'Book not found'));
+
+      const schema = {
+        title: "string|optional",
+        author: "string|optional",
+        isbn: "string|optional",
+        publisher: "string|optional",
+        year: "string|convert:true|optional",
+        category: "string|optional",
+        description: "string|optional",
+        stock: "string|convert:true|optional"
+      };
+
+      const validate = v.validate(req.body, schema);
+      if (validate.length) {
+        return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
-      const { title, author, isbn, publisher, year, category, description, stock } = req.body;
-
-      // Handle upload cover baru
       let cover_image = book.cover_image;
       if (req.file) {
-        // TODO: Hapus file lama jika ada (implementasi opsional)
         cover_image = `/uploads/books/${req.file.filename}`;
       }
 
       await book.update({
-        title: title || book.title,
-        author: author || book.author,
-        isbn: isbn !== undefined ? isbn : book.isbn,
-        publisher: publisher !== undefined ? publisher : book.publisher,
-        year: year ? parseInt(year) : book.year,
-        category: category !== undefined ? category : book.category,
-        description: description !== undefined ? description : book.description,
-        stock: stock !== undefined ? parseInt(stock) : book.stock,
-        cover_image,
+        title: req.body.title || book.title,
+        author: req.body.author || book.author,
+        isbn: req.body.isbn !== undefined ? req.body.isbn : book.isbn,
+        publisher: req.body.publisher !== undefined ? req.body.publisher : book.publisher,
+        year: req.body.year ? parseInt(req.body.year) : book.year,
+        category: req.body.category !== undefined ? req.body.category : book.category,
+        description: req.body.description !== undefined ? req.body.description : book.description,
+        stock: req.body.stock !== undefined ? parseInt(req.body.stock) : book.stock,
+        cover_image: cover_image
       });
 
-      return res.status(200).json(response(200, 'Buku berhasil diperbarui', book));
+      return res.status(200).json(response(200, 'Book updated successfully', book));
     } catch (error) {
-      console.error('Update book error:', error);
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(400).json(response(400, 'ISBN sudah terdaftar'));
-      }
-      return res.status(500).json(response(500, 'Terjadi kesalahan server', error.message));
+      return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
 
-  // DELETE /books/:id - Delete buku (Admin only)
+  // DELETE /books/:id
   destroy: async (req, res) => {
     try {
       const book = await Book.findByPk(req.params.id);
-      
-      if (!book) {
-        return res.status(404).json(response(404, 'Buku tidak ditemukan'));
-      }
+      if (!book) return res.status(404).json(response(404, 'Book not found'));
 
-      // Logic: Tidak bisa hapus jika ada peminjaman aktif
+      // Jika schema Loan masih memiliki status 'dipinjam'
       const activeLoan = await Loan.findOne({
         where: { book_id: book.id, status: 'dipinjam' }
       });
 
       if (activeLoan) {
-        return res.status(400).json(response(400, 'Buku tidak dapat dihapus karena masih ada peminjaman aktif'));
+        return res.status(400).json(response(400, 'Cannot delete book, it has active loans'));
       }
-
-      // TODO: Hapus file cover jika ada (implementasi opsional)
       
       await book.destroy();
-      return res.status(200).json(response(200, 'Buku berhasil dihapus'));
+      return res.status(200).json(response(200, 'Book deleted successfully'));
     } catch (error) {
-      console.error('Delete book error:', error.message);
-      return res.status(500).json(response(500, 'Terjadi kesalahan server', error.message));
+      return res.status(500).json(response(500, 'Internal server error', error.message));
     }
-  },
+  }
 };

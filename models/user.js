@@ -15,19 +15,23 @@ module.exports = (sequelize, DataTypes) => {
   }
   
   User.init({
-    name: DataTypes.STRING,
-    username: DataTypes.STRING,
-    password: DataTypes.STRING,
-    role: {
-      type: DataTypes.ENUM('admin', 'peminjam'),
-      defaultValue: 'peminjam'
+    id: {
+      type: DataTypes.BIGINT,
+      primaryKey: true,
+      autoIncrement: true
     },
-    email: DataTypes.STRING,
-    phone: DataTypes.STRING,
-    address: DataTypes.TEXT,
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false
+    },
+    role: {
+      type: DataTypes.ENUM('admin', 'user'),
+      defaultValue: 'user',
+      allowNull: false
     }
   }, {
     sequelize,
@@ -39,6 +43,13 @@ module.exports = (sequelize, DataTypes) => {
   // Hash password sebelum save
   User.beforeCreate(async (user) => {
     if (user.password) {
+      user.password = passwordHash.generate(user.password);
+    }
+  });
+
+  // Hash password sebelum update jika ada perubahan password
+  User.beforeUpdate(async (user) => {
+    if (user.changed('password')) {
       user.password = passwordHash.generate(user.password);
     }
   });
