@@ -10,9 +10,9 @@ module.exports = {
     try {
       const { page = 1, limit = 10, status } = req.query;
       const where = {};
-      
+
       if (status) where.status = status;
-      
+
       // Data isolation for user
       if (req.user.role === 'user') {
         where.user_id = req.user.id;
@@ -62,15 +62,22 @@ module.exports = {
   // POST /loans
   store: async (req, res) => {
     try {
-      // Hanya peminjam (user) yang boleh membuat peminjaman, atas nama diri sendiri
       req.body.user_id = req.user.id;
+
+      // 🔍 DEBUG: Log request body
+      console.log('📦 Request body:', req.body);
+
+      // Pastikan mengambil total_book dari request
+      const jumlahDipinjam = parseInt(req.body.total_book) || 1;
+
+      console.log('📚 Jumlah yang akan dipinjam:', jumlahDipinjam);
 
       const schema = {
         book_id: "number|convert:true",
-        user_id: "number|convert:true",
+        total_book: "number|convert:true|optional", // ← Pastikan ini ada
         loan_date: "date|convert:true|optional",
         return_date: "date|convert:true|optional",
-        status: { type: "enum", values: ["dipinjam", "dikembalikan"], optional: true }
+        status: { type: "enum", values: ["dipinjam", "dikembalikan", "terlambat"], optional: true }
       };
 
       const validate = v.validate(req.body, schema);
@@ -83,25 +90,35 @@ module.exports = {
       if (!book) {
         return res.status(404).json(response(404, 'Buku tidak ditemukan'));
       }
-      if (book.stock <= 0) {
-        return res.status(400).json(response(400, 'Stok buku habis, peminjaman ditolak'));
+
+      console.log('📚 Stok buku saat ini:', book.stock);
+      console.log('📚 Jumlah diminta:', jumlahDipinjam);
+
+      if (book.stock < jumlahDipinjam) {
+        return res.status(400).json(response(400, `Stok buku tidak cukup. Stok: ${book.stock}, Diminta: ${jumlahDipinjam}`));
       }
 
+      // Buat data peminjaman
       const loan = await Loan.create({
         book_id: req.body.book_id,
         user_id: req.body.user_id,
+        total_book: jumlahDipinjam, // ← Gunakan variabel yang benar
         loan_date: req.body.loan_date || new Date(),
         return_date: req.body.return_date || null,
         status: req.body.status || 'dipinjam'
       });
 
-      // Update book stock
+      // Update book stock - KURANGI SESUAI JUMLAH
       await book.update({
-        stock: book.stock - 1
+        stock: book.stock - jumlahDipinjam // ← Pastikan ini jumlahDipinjam, bukan 1
       });
 
-      return res.status(201).json(response(201, 'Loan created successfully', loan));
+      console.log('✅ Peminjaman berhasil:', loan.toJSON());
+      console.log('✅ Stok buku setelah dikurangi:', book.stock - jumlahDipinjam);
+
+      return res.status(201).json(response(201, 'Peminjaman berhasil dibuat', loan));
     } catch (error) {
+      console.error('❌ Create loan error:', error);
       return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
