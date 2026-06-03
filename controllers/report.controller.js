@@ -109,7 +109,7 @@ module.exports = {
           'book_id',
           [Sequelize.fn('COUNT', Sequelize.col('Loan.id')), 'borrow_count']
         ],
-        include: [{ model: Book, as: 'book', attributes: ['id', 'title', 'author', 'cover_image'] }],
+        include: [{ model: Book, as: 'book', attributes: ['id', 'title', 'author', 'cover_url'] }],
         group: ['Loan.book_id', 'book.id'],
         order: [[Sequelize.fn('COUNT', Sequelize.col('Loan.id')), 'DESC']],
         limit: parseInt(limit),

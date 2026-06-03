@@ -45,10 +45,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/users', userRoutes);
 
-// DEBUG: Log sebelum mount loans
-console.log('🔍 [DEBUG] Loading loan routes...');
 app.use('/api/loans', loanRoutes);
-console.log('✅ [DEBUG] Routes /api/loans loaded successfully');
 
 app.use('/api/returns', returnRoutes);
 app.use('/api/reports', reportRoutes);

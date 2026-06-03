@@ -77,7 +77,7 @@ module.exports = {
         return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
-      const cover_image = req.file ? `/uploads/books/${req.file.filename}` : null;
+      const cover_url = req.file ? `/uploads/books/${req.file.filename}` : null;
 
       const book = await Book.create({
         title: req.body.title,
@@ -88,7 +88,7 @@ module.exports = {
         category: req.body.category,
         description: req.body.description,
         stock: req.body.stock ? parseInt(req.body.stock) : 0,
-        cover_image: cover_image
+        cover_url,
       });
 
       return res.status(201).json(response(201, 'Book created successfully', book));
@@ -119,9 +119,9 @@ module.exports = {
         return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
-      let cover_image = book.cover_image;
+      let cover_url = book.cover_url;
       if (req.file) {
-        cover_image = `/uploads/books/${req.file.filename}`;
+        cover_url = `/uploads/books/${req.file.filename}`;
       }
 
       await book.update({
@@ -133,9 +133,10 @@ module.exports = {
         category: req.body.category !== undefined ? req.body.category : book.category,
         description: req.body.description !== undefined ? req.body.description : book.description,
         stock: req.body.stock !== undefined ? parseInt(req.body.stock) : book.stock,
-        cover_image: cover_image
+        cover_url,
       });
 
+      await book.reload();
       return res.status(200).json(response(200, 'Book updated successfully', book));
     } catch (error) {
       return res.status(500).json(response(500, 'Internal server error', error.message));

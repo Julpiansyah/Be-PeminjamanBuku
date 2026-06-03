@@ -22,16 +22,31 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BIGINT,
       allowNull: false
     },
+    total_book: {
+      type: DataTypes.INTEGER,
+      defaultValue: 1,
+      allowNull: false,
+      validate: {
+        min: 1
+      }
+    },
     loan_date: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
+    },
+    due_date: {
+      type: DataTypes.DATE,
+      allowNull: false
     },
     return_date: {
       type: DataTypes.DATE
     },
     status: {
-      type: DataTypes.ENUM('dipinjam', 'dikembalikan'),
+      type: DataTypes.ENUM('dipinjam', 'dikembalikan', 'terlambat'),
       defaultValue: 'dipinjam'
+    },
+    notes: {
+      type: DataTypes.TEXT
     }
   }, {
     sequelize,

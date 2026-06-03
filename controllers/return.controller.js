@@ -104,7 +104,7 @@ module.exports = {
       const book = await Book.findByPk(loan.book_id);
       if (book) {
         await book.update({
-          stock: book.stock + 1
+          stock: book.stock + (loan.total_book || 1)
         });
       }
 

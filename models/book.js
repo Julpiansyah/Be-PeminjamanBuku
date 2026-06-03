@@ -42,9 +42,9 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 0,
       validate: { min: 0 }
     },
-    cover_image: {
-      type: DataTypes.STRING
-    }
+    cover_url: {
+      type: DataTypes.STRING,
+    },
   }, {
     sequelize,
     modelName: 'Book',

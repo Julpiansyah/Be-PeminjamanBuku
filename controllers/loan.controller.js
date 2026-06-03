@@ -4,6 +4,12 @@ const { Loan, Book, User } = require('../models');
 const Validator = require('fastest-validator');
 const v = new Validator();
 
+const LOAN_ATTRIBUTES = [
+  'id', 'book_id', 'user_id', 'total_book',
+  'loan_date', 'due_date', 'return_date', 'status', 'notes',
+  'created_at', 'updated_at'
+];
+
 module.exports = {
   // GET /loans
   index: async (req, res) => {
@@ -21,6 +27,7 @@ module.exports = {
       const offset = (page - 1) * limit;
 
       const { count, rows } = await Loan.findAndCountAll({
+        attributes: LOAN_ATTRIBUTES,
         where,
         limit: parseInt(limit),
         offset: parseInt(offset),
@@ -42,6 +49,7 @@ module.exports = {
   show: async (req, res) => {
     try {
       const loan = await Loan.findByPk(req.params.id, {
+        attributes: LOAN_ATTRIBUTES,
         include: [
           { model: Book, as: 'book' },
           { model: User, as: 'user', attributes: ['id', 'name', 'rombel', 'rayon', 'role'] }
@@ -64,20 +72,13 @@ module.exports = {
     try {
       req.body.user_id = req.user.id;
 
-      // 🔍 DEBUG: Log request body
-      console.log('📦 Request body:', req.body);
-
-      // Pastikan mengambil total_book dari request
-      const jumlahDipinjam = parseInt(req.body.total_book) || 1;
-
-      console.log('📚 Jumlah yang akan dipinjam:', jumlahDipinjam);
-
       const schema = {
-        book_id: "number|convert:true",
-        total_book: "number|convert:true|optional", // ← Pastikan ini ada
-        loan_date: "date|convert:true|optional",
-        return_date: "date|convert:true|optional",
-        status: { type: "enum", values: ["dipinjam", "dikembalikan", "terlambat"], optional: true }
+        book_id: 'number|convert:true',
+        total_book: 'number|convert:true|optional|min:1',
+        due_date: 'date|convert:true',
+        loan_date: 'date|convert:true|optional',
+        notes: 'string|optional',
+        status: { type: 'enum', values: ['dipinjam', 'dikembalikan', 'terlambat'], optional: true }
       };
 
       const validate = v.validate(req.body, schema);
@@ -85,40 +86,32 @@ module.exports = {
         return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
-      // Check book stock
+      const jumlahDipinjam = Number(req.body.total_book) || 1;
+
       const book = await Book.findByPk(req.body.book_id);
       if (!book) {
         return res.status(404).json(response(404, 'Buku tidak ditemukan'));
       }
 
-      console.log('📚 Stok buku saat ini:', book.stock);
-      console.log('📚 Jumlah diminta:', jumlahDipinjam);
-
       if (book.stock < jumlahDipinjam) {
         return res.status(400).json(response(400, `Stok buku tidak cukup. Stok: ${book.stock}, Diminta: ${jumlahDipinjam}`));
       }
 
-      // Buat data peminjaman
       const loan = await Loan.create({
         book_id: req.body.book_id,
         user_id: req.body.user_id,
-        total_book: jumlahDipinjam, // ← Gunakan variabel yang benar
+        total_book: jumlahDipinjam,
         loan_date: req.body.loan_date || new Date(),
-        return_date: req.body.return_date || null,
+        due_date: req.body.due_date,
+        notes: req.body.notes || null,
         status: req.body.status || 'dipinjam'
       });
 
-      // Update book stock - KURANGI SESUAI JUMLAH
-      await book.update({
-        stock: book.stock - jumlahDipinjam // ← Pastikan ini jumlahDipinjam, bukan 1
-      });
-
-      console.log('✅ Peminjaman berhasil:', loan.toJSON());
-      console.log('✅ Stok buku setelah dikurangi:', book.stock - jumlahDipinjam);
+      await book.update({ stock: book.stock - jumlahDipinjam });
 
       return res.status(201).json(response(201, 'Peminjaman berhasil dibuat', loan));
     } catch (error) {
-      console.error('❌ Create loan error:', error);
+      console.error('Create loan error:', error);
       return res.status(500).json(response(500, 'Internal server error', error.message));
     }
   },
@@ -130,11 +123,11 @@ module.exports = {
       if (!loan) return res.status(404).json(response(404, 'Loan not found'));
 
       const schema = {
-        book_id: "number|convert:true|optional",
-        user_id: "number|convert:true|optional",
-        loan_date: "date|convert:true|optional",
-        return_date: "date|convert:true|optional",
-        status: { type: "enum", values: ["dipinjam", "dikembalikan"], optional: true }
+        book_id: 'number|convert:true|optional',
+        user_id: 'number|convert:true|optional',
+        loan_date: 'date|convert:true|optional',
+        return_date: 'date|convert:true|optional',
+        status: { type: 'enum', values: ['dipinjam', 'dikembalikan', 'terlambat'], optional: true }
       };
 
       const validate = v.validate(req.body, schema);
@@ -142,7 +135,22 @@ module.exports = {
         return res.status(400).json(response(400, 'Validation failed', validate));
       }
 
+      const previousStatus = loan.status;
+
       await loan.update(req.body);
+
+      if (req.body.status === 'dikembalikan' && previousStatus !== 'dikembalikan') {
+        const book = await Book.findByPk(loan.book_id);
+        if (book) {
+          await book.increment('stock', { by: loan.total_book || 1 });
+        }
+        if (!loan.return_date && !req.body.return_date) {
+          await loan.update({ return_date: new Date() });
+        }
+      }
+
+      await loan.reload({ attributes: LOAN_ATTRIBUTES });
+
       return res.status(200).json(response(200, 'Loan updated successfully', loan));
     } catch (error) {
       return res.status(500).json(response(500, 'Internal server error', error.message));
